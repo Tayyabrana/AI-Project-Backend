@@ -104,53 +104,55 @@ Provide the response in this JSON format:
 
 exports.extendDescription = async (req, res, next) => {
   try {
-    // Read the selected answers from the JSON file
-    const selectedAnswers = JSON.parse(fs.readFileSync("selected_answers.json", "utf-8")).selected_answers;
+    const { projectTitle, projectType, description, selected_answers } = req.body;
 
-    // Convert selected answers to formatted text
-    let outputText = "";
-    selectedAnswers.forEach((item, index) => {
-      outputText += `${index + 1}. ${item.question}\nAnswer: ${item.answer}\n\n`;
+    // Validate input
+    if (!projectTitle || !description || !Array.isArray(selected_answers)) {
+      return res.status(400).json({
+        responseCode: 400,
+        message: "Request must include 'projectTitle', 'description', and 'selected_answers' array."
+      });
+    }
+
+    // Format selected answers
+    let formattedAnswers = "";
+    selected_answers.forEach((item, index) => {
+      formattedAnswers += `${index + 1}. ${item.question}\nAnswer: ${item.answer}\n\n`;
     });
 
-    // Static project description
-    const projectDescription = `
+    // Compose prompt
+    const prompt = `
 Project Title:
-EcoTrack: Smart Carbon Footprint Tracker
+${projectTitle}
+
+Project Type:
+${projectType || "N/A"}
 
 Description:
-EcoTrack is a web-based application that helps individuals and businesses monitor and reduce their carbon footprint. By analyzing daily activities such as transportation, energy consumption, and food choices, EcoTrack provides insights and suggestions to promote more sustainable living. The platform aims to raise environmental awareness and encourage eco-friendly habits through data-driven feedback.
-`;
-
-    // Compose the prompt
-    const prompt = `
-${projectDescription}
+${description}
 
 Above is my project description.
 Your task is to extend the project description according to the following answers to the questions.
 That means you have to extend the requirements of the project.
 
-${outputText}
+${formattedAnswers}
 
-provide the response in a JSON format
-
-
-Please return the extended description in the following JSON format only:
+Provide the response in the following JSON format:
 {
-  "projectTitle": "text",
-  "description": "text"
+  "projectTitle": "string",
+  "description": "string"
 }
 `;
 
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
+      temperature: 0.7
     });
 
     let content = response.choices[0].message.content.trim();
 
-    // Remove code block formatting if present
+    // Clean up code blocks
     if (content.startsWith("```")) {
       content = content.replace(/```(?:json)?\n?/, '').replace(/```$/, '').trim();
     }
@@ -167,8 +169,8 @@ Please return the extended description in the following JSON format only:
       });
     }
 
-    // Success response
-    res.status(200).json({
+    // Success
+    return res.status(200).json({
       responseCode: 200,
       message: "Extended project description generated successfully",
       data: parsed
@@ -176,13 +178,14 @@ Please return the extended description in the following JSON format only:
 
   } catch (error) {
     console.error("❌ OpenAI API error:", error.message);
-    res.status(500).json({
+    return res.status(500).json({
       responseCode: 500,
       message: "Internal server error",
       error: error.message
     });
   }
 };
+
 
 exports.getTechStacks = async (req, res, next) => {
   try {
