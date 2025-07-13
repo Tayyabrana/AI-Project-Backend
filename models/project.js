@@ -4,17 +4,14 @@ module.exports = class Project {
     static create(params) {
         return database.query(
             `INSERT INTO projects
-             (project_name, tech_stack, description, project_type, project_status, start_time, end_time, estimated_end_time, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             (project_name, tech_stack, description, project_type, project_status, status)
+             VALUES (?, ?, ?, ?, ?, ?)`,
             [
                 params.project_name,
                 params.tech_stack,
                 params.description,
                 params.project_type,
                 params.project_status,
-                params.start_time,
-                params.end_time,
-                params.estimated_end_time,
                 params.status || 0,
             ]
         );
@@ -31,8 +28,7 @@ module.exports = class Project {
     static update(id, params) {
         return database.query(
             `UPDATE projects
-             SET project_name = ?, tech_stack = ?, description = ?, project_type = ?, project_status = ?,
-                 start_time = ?, end_time = ?, estimated_end_time = ?, status = ?
+             SET project_name = ?, tech_stack = ?, description = ?, project_type = ?, project_status = ?, status = ?
              WHERE id = ?`,
             [
                 params.project_name,
@@ -40,12 +36,23 @@ module.exports = class Project {
                 params.description,
                 params.project_type,
                 params.project_status,
-                params.start_time,
-                params.end_time,
-                params.estimated_end_time,
                 params.status,
                 id,
             ]
+        );
+    }
+
+    static updateNameAndDescription(id, name, description) {
+        return database.query(
+            `UPDATE projects SET project_name = ?, description = ? WHERE id = ?`,
+            [name, description, id]
+        );
+    }
+
+    static updateTechStack(id, tech_stack) {
+        return database.query(
+            `UPDATE projects SET tech_stack = ? WHERE id = ?`,
+            [tech_stack, id]
         );
     }
 
@@ -64,9 +71,9 @@ module.exports = class Project {
     static searchByKeyword(keyword) {
         const likeKeyword = `%${keyword}%`;
         return database.query(
-            `SELECT * FROM projects 
-       WHERE project_name LIKE ? OR description LIKE ? 
-       ORDER BY created_at DESC`,
+            `SELECT * FROM projects
+             WHERE project_name LIKE ? OR description LIKE ?
+             ORDER BY created_at DESC`,
             [likeKeyword, likeKeyword]
         );
     }

@@ -131,34 +131,54 @@ Your task is to extend the project description according to the following answer
 That means you have to extend the requirements of the project.
 
 ${outputText}
+
+provide the response in a JSON format
+
+
+Please return the extended description in the following JSON format only:
+{
+  "projectTitle": "text",
+  "description": "text"
+}
 `;
 
-    // Call OpenAI to extend the description
     const response = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [{ role: 'user', content: prompt }],
       temperature: 0.7,
     });
 
-    let extendedDescription = response.choices[0].message.content.trim();
+    let content = response.choices[0].message.content.trim();
 
-    // Remove code block markers if present
-    if (extendedDescription.startsWith("```")) {
-      extendedDescription = extendedDescription.replace(/```(?:json)?\n?/, '').replace(/```$/, '').trim();
+    // Remove code block formatting if present
+    if (content.startsWith("```")) {
+      content = content.replace(/```(?:json)?\n?/, '').replace(/```$/, '').trim();
     }
 
-    // Return response as JSON
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (err) {
+      return res.status(500).json({
+        responseCode: 500,
+        message: "Failed to parse OpenAI JSON response",
+        rawResponse: content,
+        error: err.message
+      });
+    }
+
+    // Success response
     res.status(200).json({
       responseCode: 200,
-      message: "Project description extended successfully",
-      extendedDescription: extendedDescription
+      message: "Extended project description generated successfully",
+      data: parsed
     });
 
   } catch (error) {
-    console.error("❌ Error in extendDescription:", error.message);
+    console.error("❌ OpenAI API error:", error.message);
     res.status(500).json({
       responseCode: 500,
-      message: "Failed to extend project description",
+      message: "Internal server error",
       error: error.message
     });
   }
