@@ -1,6 +1,7 @@
 require('dotenv').config();
 const fs = require('fs');
 const OpenAI = require('openai');
+const Project = require('../models/project.js');
 
 const openai = new OpenAI({
   apiKey: process.env.APIKEY
@@ -15,6 +16,15 @@ exports.askQuestions = async (req, res) => {
         message: "projectTitle, projectType, and description are required"
       });
     }
+
+    await Project.create({
+      project_name: projectTitle,
+      tech_stack: null,
+      description: description,
+      project_type: projectType,
+      project_status: "SCRATCH",
+      status: 0
+    })
 
     const projectDescription = `
 Project Title:
@@ -379,6 +389,98 @@ Respond in JSON format like this:
       responseCode: 500,
       message: "Internal server error",
       error: err.message
+    });
+  }
+};
+
+exports.generateFeatureTasks = async (req, res) => {
+  try {
+    const features = req.body.features;
+
+    if (!features || !Array.isArray(features)) {
+      return res.status(400).json({
+        responseCode: 400,
+        message: "Invalid or missing 'features' in request body. Must be an array of features.",
+      });
+    }
+
+    // Function to create prompt
+    function taskPrompt(featureName, description) {
+      return `
+Your job is to break the following software feature into detailed development tasks.
+
+Feature: ${featureName}
+Description: ${description}
+
+Each task must include:
+- title (string)
+- description (string)
+- estimatedHours (number between 2–20)
+- priority (High, Medium, Low)
+- dependencies (array of strings)
+
+Return only valid raw JSON (no markdown, no extra text), in this format:
+{
+  "feature": "${featureName}",
+  "tasks": [
+    {
+      "title": "Example Task",
+      "description": "What to build",
+      "estimatedHours": 6,
+      "priority": "High",
+      "dependencies": []
+    }
+  ]
+}
+
+⚠️ Output must be valid JSON directly parsable by JSON.parse(). Minimum 5 tasks.
+`;
+    }
+
+    // Function to generate tasks for a single feature
+    async function generateTasks(feature) {
+      const prompt = taskPrompt(feature.name, feature.description);
+      const response = await openai.chat.completions.create({
+        model: "gpt-4o",
+        messages: [{ role: "user", content: prompt }],
+        temperature: 0.4,
+      });
+
+      let content = response.choices[0].message.content.trim();
+      if (content.startsWith("```")) {
+        content = content.replace(/```(?:json)?\n?/, "").replace(/```$/, "").trim();
+      }
+
+      try {
+        return JSON.parse(content);
+      } catch (err) {
+        return {
+          feature: feature.name,
+          tasks: [],
+          error: true,
+          raw: content,
+          errorMessage: err.message,
+        };
+      }
+    }
+
+    const results = [];
+    for (const feature of features) {
+      const result = await generateTasks(feature);
+      results.push(result);
+    }
+
+    return res.status(200).json({
+      responseCode: 200,
+      message: "Feature tasks generated successfully",
+      data: { featureTasks: results },
+    });
+  } catch (error) {
+    console.error("❌ API error:", error.message);
+    return res.status(500).json({
+      responseCode: 500,
+      message: "Internal server error",
+      error: error.message,
     });
   }
 };
