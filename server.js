@@ -36,6 +36,7 @@ database
         app.use("/v1/features", featureRoutes);
         app.use("/v1/tasks", taskRoutes);
         app.use("/v1/assignments", assignmentRoutes);
+        app.use("/v1/openai",openaiRoutes);
 
         app.use(get404);
         app.use(get500);
