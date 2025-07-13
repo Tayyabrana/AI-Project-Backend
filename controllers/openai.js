@@ -292,6 +292,94 @@ Following are the categories
   }
 };
 
+exports.generateFeatures = async (req, res) => {
+  try {
+    const { title, description } = req.body;
+
+    if (!title || !description) {
+      return res.status(400).json({
+        responseCode: 400,
+        message: "Missing required fields: title or description"
+      });
+    }
+
+    const project_description = `
+Project Title:
+${title}
+
+Description:
+${description}
+`;
+
+    const prompt = `
+${project_description}
+
+Above is my project description.
+Your task is to provide features for this project.
+
+Provide me almost all the feature ideas. Include more than 15 and be specific.
+Focus on core features with detail.
+
+Respond in JSON format like this:
+
+{
+  "title": "text",
+  "description": "text",
+  "features": [
+    {
+      "name": "text",
+      "description": "text",
+      "commonIssues": "text",
+      "approach": "text",
+      "estimated_time": number of days (int)
+    },
+    ...
+  ]
+}
+`;
+
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7
+    });
+
+    let content = response.choices[0].message.content.trim();
+
+    // Remove markdown code fences
+    if (content.startsWith("```")) {
+      content = content.replace(/```(?:json)?\n?/, '').replace(/```$/, '').trim();
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(content);
+    } catch (err) {
+      return res.status(500).json({
+        responseCode: 500,
+        message: "Failed to parse JSON from OpenAI response",
+        rawResponse: content,
+        error: err.message
+      });
+    }
+
+    // ✅ Send parsed result
+    res.status(200).json({
+      responseCode: 200,
+      message: "Features generated successfully",
+      data: parsed
+    });
+
+  } catch (err) {
+    console.error("❌ OpenAI API error:", err.message);
+    res.status(500).json({
+      responseCode: 500,
+      message: "Internal server error",
+      error: err.message
+    });
+  }
+};
+
 
 function validateQuestions(json) {
   const expectedTopKey = 'questions';

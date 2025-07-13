@@ -11,6 +11,7 @@ import employeeRoutes from "./routes/employee.js";
 import featureRoutes from "./routes/feature.js";
 import taskRoutes from "./routes/task.js";
 import assignmentRoutes from "./routes/assignment.js";
+import openaiRoutes from './routes/openai.js';
 
 const app = express();
 const port = process.env.PORT || 6050;
